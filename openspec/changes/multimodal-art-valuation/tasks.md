@@ -2,9 +2,9 @@
 
 ## 1. Data Pipeline and Synthetic Benchmark
 
-- [ ] 1.1 Implement dataset schema validator in `src/data/validator.py` and verify with unit tests on valid and invalid metadata dictionaries
-- [ ] 1.2 Implement synthetic benchmark generator in `src/data/synthetic.py` generating procedural artwork images and paired metadata, verifying generated image files and CSV output
-- [ ] 1.3 Implement data cleaning and transformation in `src/data/cleaner.py` (aspect ratio, surface area, `log1p(price)` target transformation) and verify with tests
+- [x] 1.1 Implement dataset schema validator in `src/data/validator.py` and verify with unit tests on valid and invalid metadata dictionaries
+- [x] 1.2 Implement synthetic benchmark generator in `src/data/synthetic.py` generating procedural artwork images and paired metadata, verifying generated image files and CSV output
+- [x] 1.3 Implement data cleaning and transformation in `src/data/cleaner.py` (aspect ratio, surface area, `log1p(price)` target transformation) and verify with tests
 
 ## 2. Feature Extraction (Visual and Tabular)
 

@@ -64,3 +64,6 @@ models/*.bin
 .DS_Store
 *.swp
 *.swo
+
+# Teamwork Agent metadata
+.agents/
