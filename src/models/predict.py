@@ -80,13 +80,14 @@ def predict_valuation(
         raise ValueError(f"Significance level alpha must be in (0.0, 1.0], got {alpha}")
 
     X_arr = np.asarray(X, dtype=np.float32)
-    if X_arr.ndim == 1:
-        X_arr = X_arr.reshape(1, -1)
 
     # Empty batch handling
-    if X_arr.shape[0] == 0:
+    if X_arr.size == 0 or X_arr.shape[0] == 0:
         empty = np.empty((0,), dtype=np.float32)
         return (empty, empty, empty) if return_bounds else empty
+
+    if X_arr.ndim == 1:
+        X_arr = X_arr.reshape(1, -1)
 
     # Sanitize features against NaNs / Infs
     X_clean = np.nan_to_num(X_arr, nan=0.0, posinf=1e6, neginf=-1e6)

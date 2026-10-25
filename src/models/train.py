@@ -128,6 +128,8 @@ class ArtValuationModel:
             raise ValueError(f"Sample count mismatch: X has {len(X_arr)}, y has {len(y_arr)}.")
 
         X_clean = np.nan_to_num(X_arr, nan=0.0, posinf=1e6, neginf=-1e6)
+        if len(X_clean) < 2:
+            raise ValueError(f"ArtValuationModel requires at least 2 samples to fit, got N={len(X_clean)}.")
         self.estimator_ = self._create_estimator(n_samples=len(X_clean))
         self.estimator_.fit(X_clean, y_arr)
 
@@ -149,11 +151,12 @@ class ArtValuationModel:
             raise RuntimeError("ArtValuationModel must be fitted before predict_log.")
 
         X_arr = np.asarray(X, dtype=np.float32)
+
+        if X_arr.size == 0 or X_arr.shape[0] == 0:
+            return np.empty((0,), dtype=np.float32)
+
         if X_arr.ndim == 1:
             X_arr = X_arr.reshape(1, -1)
-
-        if X_arr.shape[0] == 0:
-            return np.empty((0,), dtype=np.float32)
 
         X_clean = np.nan_to_num(X_arr, nan=0.0, posinf=1e6, neginf=-1e6)
         preds = self.estimator_.predict(X_clean)
@@ -192,7 +195,7 @@ def train_valuation_model(
     model_type: str = "lightgbm",
     val_fraction: float = 0.2,
     random_state: int = 42,
-    is_log_target: Optional[bool] = None,
+    is_log_target: bool = False,
     **hyperparams: Any,
 ) -> Tuple[ArtValuationModel, Dict[str, float]]:
     """Trains an ArtValuationModel and computes training/validation metrics."""
@@ -203,17 +206,11 @@ def train_valuation_model(
     if n_samples == 0:
         raise ValueError("Cannot train on empty feature matrix.")
 
-    # Target conversion if needed
+    # Target conversion: default is_log_target=False (raw prices in dollars) unless explicitly set to True
     if is_log_target is True:
         y_arr = y_raw
-    elif is_log_target is False:
-        y_arr = np.log1p(np.maximum(0.0, y_raw))
     else:
-        # Auto-detect: if max price > 50.0, assume raw dollars, else log1p
-        if np.max(y_raw) > 50.0:
-            y_arr = np.log1p(np.maximum(0.0, y_raw))
-        else:
-            y_arr = y_raw
+        y_arr = np.log1p(np.maximum(0.0, y_raw))
 
     # Train-val split if dataset size permits
     if n_samples >= 10 and 0.0 < val_fraction < 1.0:

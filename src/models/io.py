@@ -15,6 +15,7 @@ from typing import Any, Dict, Union
 
 import joblib
 import numpy as np
+import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +28,7 @@ def _sanitize_for_json(obj: Any) -> Any:
     """Recursively converts NumPy and custom scalar types to standard JSON-compatible types."""
     if isinstance(obj, dict):
         return {str(k): _sanitize_for_json(v) for k, v in obj.items()}
-    elif isinstance(obj, (list, tuple)):
+    elif isinstance(obj, (list, tuple, set)) or (pd is not None and isinstance(obj, (pd.Index, pd.Series))):
         return [_sanitize_for_json(item) for item in obj]
     elif isinstance(obj, np.ndarray):
         return obj.tolist()

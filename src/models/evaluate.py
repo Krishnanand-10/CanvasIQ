@@ -26,6 +26,15 @@ class AblationDataFrame(pd.DataFrame):
             for col in self.columns:
                 if col.lower() == key.lower():
                     return super().__getitem__(col)
+        elif isinstance(key, (list, tuple)):
+            resolved = []
+            for k in key:
+                if isinstance(k, str) and k not in self.columns:
+                    match = next((col for col in self.columns if col.lower() == k.lower()), k)
+                    resolved.append(match)
+                else:
+                    resolved.append(k)
+            return super().__getitem__(resolved)
         return super().__getitem__(key)
 
 
@@ -133,11 +142,12 @@ def run_ablation_study(
         # Positional convention dispatch
         a1 = np.asarray(arg1, dtype=np.float32)
         a2 = np.asarray(arg2, dtype=np.float32)
-        if a2.ndim == 2:
+        is_convention_2 = isinstance(arg3, (int, np.integer)) or (arg3 is None and tabular_dim is not None)
+        if not is_convention_2:
             # Convention 1: X_tab, X_vis, y_price
             _X_tab = a1
-            _X_vis = a2
-            _y = np.asarray(arg3, dtype=np.float32).ravel()
+            _X_vis = a2 if a2.ndim == 2 else a2.reshape(-1, 1)
+            _y = np.asarray(arg3 if arg3 is not None else y_price, dtype=np.float32).ravel()
             t_dim = _X_tab.shape[1]
             _X_mm = np.hstack([_X_tab, _X_vis])
         else:
