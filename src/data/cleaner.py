@@ -50,9 +50,9 @@ class ArtDataCleaner:
         if np.isscalar(height) and np.isscalar(width):
             if np.isnan(height) or np.isnan(width):
                 raise ValueError("Height and width cannot be NaN")
-            if height < 0 or width < 0:
+            if height <= 0 or width <= 0:
                 raise ValueError(
-                    f"Dimensions cannot be negative: height={height}, width={width}"
+                    f"Dimensions cannot be negative or zero (must be strictly positive): height={height}, width={width}"
                 )
             return float(height * width)
 
@@ -168,12 +168,24 @@ class ArtDataCleaner:
             Age in years (clamped >= 0).
         """
         if np.isscalar(year):
-            if np.isnan(year):
+            if year is None:
                 return 0
-            return max(0, int(reference_year - year))
+            try:
+                y_float = float(year)
+            except (ValueError, TypeError):
+                return 0
+            if not np.isfinite(y_float):
+                return 0
+            try:
+                return max(0, int(reference_year - y_float))
+            except (OverflowError, ValueError):
+                return 0
 
         y = np.asarray(year, dtype=float)
-        age = np.maximum(0, reference_year - y)
+        finite_mask = np.isfinite(y)
+        safe_y = np.where(finite_mask, y, reference_year)
+        age = np.maximum(0.0, reference_year - safe_y)
+        age = np.clip(age, 0, np.iinfo(int).max)
         if isinstance(year, pd.Series):
             return pd.Series(age.astype(int), index=year.index)
         return age.astype(int)
@@ -235,25 +247,32 @@ class ArtDataCleaner:
             if col in clean_df.columns:
                 clean_df[col] = pd.to_numeric(clean_df[col], errors="coerce")
 
-        # Drop rows with NaN or non-positive dimensions
+        # Drop rows with NaN, non-finite, or non-positive dimensions
         if "height" in clean_df.columns and "width" in clean_df.columns:
             valid_dims = (
                 clean_df["height"].notna()
                 & clean_df["width"].notna()
+                & np.isfinite(clean_df["height"])
+                & np.isfinite(clean_df["width"])
                 & (clean_df["height"] > 0)
                 & (clean_df["width"] > 0)
             )
             clean_df = clean_df[valid_dims]
 
-        # Drop rows with NaN year
+        # Drop rows with NaN or non-finite year
         if "year" in clean_df.columns:
-            clean_df = clean_df[clean_df["year"].notna()]
+            valid_year = clean_df["year"].notna() & np.isfinite(clean_df["year"])
+            clean_df = clean_df[valid_year]
 
         # Handle price filtering
         if "price" in clean_df.columns:
             clean_df["price"] = pd.to_numeric(clean_df["price"], errors="coerce")
             if is_training:
-                valid_price = clean_df["price"].notna() & (clean_df["price"] > 0)
+                valid_price = (
+                    clean_df["price"].notna()
+                    & np.isfinite(clean_df["price"])
+                    & (clean_df["price"] > 0)
+                )
                 clean_df = clean_df[valid_price]
         elif is_training:
             raise ValueError("Training dataset must contain a 'price' column")
@@ -272,7 +291,7 @@ class ArtDataCleaner:
                 clean_df["log_price"] = np.log1p(clean_df["price"].astype(float))
             else:
                 clean_df["log_price"] = np.where(
-                    clean_df["price"].notna() & (clean_df["price"] > 0),
+                    clean_df["price"].notna() & (clean_df["price"] >= 0),
                     np.log1p(clean_df["price"].astype(float)),
                     np.nan,
                 )

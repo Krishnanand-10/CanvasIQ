@@ -256,11 +256,11 @@ def validate_artwork_schema(
                 f"Column '{dim_col}' contains non-numeric values: {exc}."
             ) from exc
 
-        non_positive_dim = dim_series <= 0
-        if non_positive_dim.any():
-            bad_dims = dim_series[non_positive_dim].tolist()
+        too_small_dim = dim_series < MIN_DIMENSION
+        if too_small_dim.any():
+            bad_dims = dim_series[too_small_dim].tolist()
             raise InvalidRangeError(
-                f"Column '{dim_col}' must be strictly positive (> 0). "
+                f"Column '{dim_col}' must be strictly positive (>= {MIN_DIMENSION} cm). "
                 f"Invalid non-positive values found: {bad_dims[:10]}.",
                 column=dim_col,
                 invalid_values=bad_dims,
@@ -289,15 +289,26 @@ def validate_artwork_schema(
                     f"Column 'price' contains non-numeric values: {exc}."
                 ) from exc
 
-            non_positive_price = numeric_price <= 0
-            if non_positive_price.any():
-                bad_prices = numeric_price[non_positive_price].tolist()
-                raise InvalidRangeError(
-                    f"Column 'price' must be strictly positive (> 0). "
-                    f"Invalid non-positive values found: {bad_prices[:10]}.",
-                    column="price",
-                    invalid_values=bad_prices,
-                )
+            if is_training:
+                too_low_price = numeric_price < MIN_PRICE
+                if too_low_price.any():
+                    bad_prices = numeric_price[too_low_price].tolist()
+                    raise InvalidRangeError(
+                        f"Column 'price' must be strictly positive (>= {MIN_PRICE}). "
+                        f"Invalid non-positive values found: {bad_prices[:10]}.",
+                        column="price",
+                        invalid_values=bad_prices,
+                    )
+            else:
+                negative_price = numeric_price < 0
+                if negative_price.any():
+                    bad_prices = numeric_price[negative_price].tolist()
+                    raise InvalidRangeError(
+                        f"Column 'price' must be non-negative (>= 0). "
+                        f"Invalid negative values found: {bad_prices[:10]}.",
+                        column="price",
+                        invalid_values=bad_prices,
+                    )
 
             too_expensive = numeric_price > MAX_PRICE
             if too_expensive.any():

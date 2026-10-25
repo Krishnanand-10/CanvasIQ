@@ -366,6 +366,28 @@ class TestArtworkSchemaValidator:
         with pytest.raises(InvalidRangeError, match="outside allowable historical range"):
             validate_artwork_schema(data, is_training=True)
 
+    def test_sub_minimum_dimension_raises(self, valid_artwork_dict):
+        data = valid_artwork_dict.copy()
+        data["height"] = 0.0001
+        with pytest.raises(InvalidRangeError, match="must be strictly positive"):
+            validate_artwork_schema(data, is_training=True)
+
+        data = valid_artwork_dict.copy()
+        data["width"] = 0.0005
+        with pytest.raises(InvalidRangeError, match="must be strictly positive"):
+            validate_artwork_schema(data, is_training=True)
+
+    def test_sub_minimum_price_training_raises(self, valid_artwork_dict):
+        data = valid_artwork_dict.copy()
+        data["price"] = 0.00001
+        with pytest.raises(InvalidRangeError, match="must be strictly positive"):
+            validate_artwork_schema(data, is_training=True)
+
+        # In inference mode, 0.0 is permitted
+        data["price"] = 0.0
+        validated = validate_artwork_schema(data, is_training=False)
+        assert validated["price"].iloc[0] == 0.0
+
 
 # ============================================================================
 # 3. Image File Validation Tests
@@ -534,7 +556,10 @@ class TestArtDataCleaner:
             calculate_surface_area(-10.0, 50.0)
         with pytest.raises(ValueError, match="cannot be negative"):
             calculate_surface_area(50.0, -10.0)
-        assert calculate_surface_area(0.0, 50.0) == 0.0
+        with pytest.raises(ValueError, match="strictly positive"):
+            calculate_surface_area(0.0, 50.0)
+        with pytest.raises(ValueError, match="strictly positive"):
+            calculate_surface_area(50.0, 0.0)
 
     def test_calculate_aspect_ratio_scalar(self):
         assert calculate_aspect_ratio(height=50.0, width=100.0) == 2.0
@@ -616,6 +641,36 @@ class TestArtDataCleaner:
         assert "surface_area" in cleaned.columns
         assert "aspect_ratio" in cleaned.columns
         assert "age" in cleaned.columns
+
+    def test_calculate_age_non_finite_inputs(self):
+        assert calculate_age(float("inf")) == 0
+        assert calculate_age(float("-inf")) == 0
+        assert calculate_age(float("nan")) == 0
+        assert calculate_age(None) == 0
+
+        series_years = pd.Series([2000, float("inf"), float("-inf"), np.nan])
+        ages = calculate_age(series_years, reference_year=2026)
+        assert list(ages) == [26, 0, 0, 0]
+
+    def test_clean_filters_non_finite_years(self):
+        cleaner = ArtDataCleaner(reference_year=2026)
+        df = pd.DataFrame([
+            {"artist": "A", "year": float("inf"), "medium": "Oil", "height": 50.0, "width": 50.0, "price": 1000.0},
+            {"artist": "B", "year": float("-inf"), "medium": "Oil", "height": 50.0, "width": 50.0, "price": 1000.0},
+            {"artist": "C", "year": np.nan, "medium": "Oil", "height": 50.0, "width": 50.0, "price": 1000.0},
+            {"artist": "D", "year": 2000, "medium": "Oil", "height": 50.0, "width": 50.0, "price": 1000.0},
+        ])
+        cleaned = cleaner.clean(df, is_training=True)
+        assert len(cleaned) == 1
+        assert cleaned.iloc[0]["artist"] == "D"
+        assert cleaned.iloc[0]["age"] == 26
+
+    def test_clean_inference_zero_price_log_price(self, valid_artwork_df):
+        cleaner = ArtDataCleaner(reference_year=2026)
+        df = valid_artwork_df.copy()
+        df.loc[0, "price"] = 0.0
+        cleaned = cleaner.clean(df, is_training=False)
+        assert cleaned.loc[0, "log_price"] == 0.0
 
     def test_clean_returns_copy_not_view(self, valid_artwork_df):
         original_copy = valid_artwork_df.copy()
