@@ -8,9 +8,9 @@
 
 ## 2. Feature Extraction (Visual and Tabular)
 
-- [ ] 2.1 Implement deep vision feature extractor in `src/features/vision.py` using pretrained ResNet50 with pooling and fallback handling, verifying feature dimensions on sample images
-- [ ] 2.2 Implement tabular feature transformer in `src/features/tabular.py` for medium categorical encoding, artist statistics, and dimensional scaling, verifying output array shapes
-- [ ] 2.3 Implement multimodal feature concatenator in `src/features/multimodal.py` combining vision embeddings and tabular features, verifying end-to-end vector fusion
+- [x] 2.1 Implement deep vision feature extractor in `src/features/vision.py` using pretrained ResNet50 with pooling and fallback handling, verifying feature dimensions on sample images
+- [x] 2.2 Implement tabular feature transformer in `src/features/tabular.py` for medium categorical encoding, artist statistics, and dimensional scaling, verifying output array shapes
+- [x] 2.3 Implement multimodal feature concatenator in `src/features/multimodal.py` combining vision embeddings and tabular features, verifying end-to-end vector fusion
 
 ## 3. Valuation Engine and Evaluation
 
