@@ -14,9 +14,9 @@
 
 ## 3. Valuation Engine and Evaluation
 
-- [ ] 3.1 Implement regression model training and inference in `src/models/train.py` and `src/models/predict.py` supporting LightGBM / XGBoost with log-price back-transformation, verifying training execution
-- [ ] 3.2 Implement model evaluation and ablation runner in `src/models/evaluate.py` reporting Tabular-only, Vision-only, and Multimodal metrics (R², MAE, RMSE, MAPE), verifying comparison table output
-- [ ] 3.3 Implement model persistence and artifact saving in `src/models/io.py` verifying model reload and identical prediction outputs
+- [x] 3.1 Implement regression model training and inference in `src/models/train.py` and `src/models/predict.py` supporting LightGBM / XGBoost with log-price back-transformation, verifying training execution
+- [x] 3.2 Implement model evaluation and ablation runner in `src/models/evaluate.py` reporting Tabular-only, Vision-only, and Multimodal metrics (R², MAE, RMSE, MAPE), verifying comparison table output
+- [x] 3.3 Implement model persistence and artifact saving in `src/models/io.py` verifying model reload and identical prediction outputs
 
 ## 4. Interactive Appraisal Interface
 
