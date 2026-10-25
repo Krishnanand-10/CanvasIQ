@@ -25,6 +25,7 @@ from pathlib import Path
 from typing import Any, List, Optional, Sequence, Union
 
 import numpy as np
+import pandas as pd
 from PIL import Image
 
 logger = logging.getLogger(__name__)
@@ -292,21 +293,37 @@ class ResNet50FeatureExtractor:
             np.ndarray: 2D array of shape (N, 2048) and dtype np.float32.
                         Corrupt or missing items receive np.zeros(2048, dtype=np.float32).
         """
-        if not image_inputs:
+        if image_inputs is None:
             return np.empty((0, VISION_FEATURE_DIM), dtype=np.float32)
 
-        n_total = len(image_inputs)
+        if isinstance(image_inputs, (str, bytes, bytearray, Path, Image.Image)):
+            items: List[Any] = [image_inputs]
+        elif isinstance(image_inputs, (pd.Series, np.ndarray)):
+            raw_list = image_inputs.tolist()
+            items = raw_list if isinstance(raw_list, list) else [raw_list]
+        elif isinstance(image_inputs, list):
+            items = image_inputs
+        else:
+            try:
+                items = list(image_inputs)
+            except TypeError:
+                items = [image_inputs]
+
+        if len(items) == 0:
+            return np.empty((0, VISION_FEATURE_DIM), dtype=np.float32)
+
+        n_total = len(items)
         results = np.zeros((n_total, VISION_FEATURE_DIM), dtype=np.float32)
 
         if self.use_mock or not TORCH_AVAILABLE or self.transform is None:
-            for idx, item in enumerate(image_inputs):
+            for idx, item in enumerate(items):
                 results[idx] = self.extract_image(item)
             return results
 
         eff_batch_size = max(1, int(batch_size))
         for start_idx in range(0, n_total, eff_batch_size):
             end_idx = min(start_idx + eff_batch_size, n_total)
-            chunk_items = image_inputs[start_idx:end_idx]
+            chunk_items = items[start_idx:end_idx]
 
             valid_indices: List[int] = []
             valid_tensors: List[torch.Tensor] = []
@@ -331,6 +348,6 @@ class ResNet50FeatureExtractor:
                 except Exception as exc:
                     logger.warning("Batch chunk inference failed: %s. Falling back to single item extraction.", exc)
                     for orig_idx in valid_indices:
-                        results[orig_idx] = self.extract_image(image_inputs[orig_idx])
+                        results[orig_idx] = self.extract_image(items[orig_idx])
 
         return results
