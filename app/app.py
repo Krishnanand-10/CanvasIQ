@@ -26,6 +26,25 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+try:
+    from app.ui_theme import (
+        disclaimer,
+        empty_state,
+        estimate_card,
+        inject_theme,
+        page_header,
+        sidebar_stats,
+    )
+except ImportError:
+    from ui_theme import (
+        disclaimer,
+        empty_state,
+        estimate_card,
+        inject_theme,
+        page_header,
+        sidebar_stats,
+    )
+
 from src.data.cleaner import ArtDataCleaner
 from src.data.synthetic import SyntheticArtDatasetGenerator
 from src.data.validator import validate_artwork_schema
@@ -40,8 +59,8 @@ logger = logging.getLogger("canvas_iq_app")
 
 # Page Configuration & Metadata
 st.set_page_config(
-    page_title="CanvasIQ - Multimodal Art Valuation",
-    page_icon="🎨",
+    page_title="CanvasIQ - Art Valuation Engine",
+    page_icon="🏛️",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -356,63 +375,53 @@ def appraise_artwork(
 
 def main() -> None:
     """Main execution entrypoint for CanvasIQ Streamlit appraisal web application."""
-    st.title("🎨 CanvasIQ: Multimodal Art Piece Valuation Engine")
-    st.markdown(
-        "**AI-Powered Fine Art Auction Price Appraisal & Aesthetic Analysis**  \n"
-        "CanvasIQ estimates fair market auction valuations by fusing high-dimensional visual aesthetic "
-        "embeddings (extracted via a frozen ImageNet-pretrained ResNet50 backbone) with historical "
-        "tabular metadata (artist pedigree, medium, dimensions, and creation age)."
-    )
-    st.divider()
+    # Inject auction-house catalogue typography & palette
+    inject_theme()
 
     # Load or bootstrap cached valuation pipeline and vision extractor
     pipeline = load_or_bootstrap_pipeline()
     vision_extractor = get_vision_extractor(device="cpu")
 
-    # Sidebar Controls & Diagnostics
-    st.sidebar.title("🎨 CanvasIQ Controls")
-    st.sidebar.markdown("**System Status:** 🟢 Operational")
+    # Sidebar: Presets at top, compact diagnostics in middle, Retrain at bottom under divider
+    st.sidebar.markdown(
+        '<div style="font-family: \'Newsreader\', Georgia, serif; font-size: 1.35rem; color: #F5F6F4; '
+        'font-weight: 500; margin-bottom: 0.25rem;">CanvasIQ</div>'
+        '<div style="font-size: 0.8rem; color: #A0A4AB; margin-bottom: 1rem;">Auction valuation engine</div>',
+        unsafe_allow_html=True,
+    )
 
     preset_name = st.sidebar.selectbox(
-        "Load Preset Catalog Artwork",
+        "Catalogue presets",
         options=["Select a preset..."] + list(PRESET_ARTWORKS.keys()),
         index=0,
-        help="Select a curated historical artwork to prefill metadata.",
+        help="Select a curated artwork to populate details.",
     )
     selected_preset = PRESET_ARTWORKS.get(preset_name)
 
     st.sidebar.divider()
-    st.sidebar.subheader("Model Diagnostics")
-    meta = pipeline.get("metadata", {})
-    model_obj = pipeline.get("model")
-    model_type_str = str(meta.get("model_type", getattr(model_obj, "model_type", "LightGBM"))).title()
-    tab_dim_val = meta.get("tabular_dim", 11)
-    vis_dim_val = meta.get("vision_dim", 2048)
-    n_samp_val = meta.get("n_samples", 60)
-    res_std_val = getattr(model_obj, "residual_std_", meta.get("residual_std", 0.20))
 
-    st.sidebar.write(f"**Model Type:** {model_type_str}")
-    st.sidebar.write(f"**Tabular Feature Dim:** {tab_dim_val}-D")
-    st.sidebar.write(f"**Vision Embedding Dim:** {vis_dim_val}-D")
-    st.sidebar.write(f"**Training Sample Count:** {n_samp_val}")
-    st.sidebar.write(f"**Log Residual Std ($\\sigma_\\epsilon$):** {res_std_val:.4f}")
+    # Model diagnostics as compact label/value rows
+    sidebar_stats(pipeline.get("metadata", {}), pipeline.get("model"))
 
     st.sidebar.divider()
-    if st.sidebar.button("🔄 Retrain / Re-bootstrap Model"):
-        with st.spinner("Retraining baseline model on benchmark..."):
+    if st.sidebar.button("Retrain / Re-bootstrap", use_container_width=True):
+        with st.spinner("Retraining baseline model..."):
             pipeline = bootstrap_model_pipeline(MODEL_DIR, n_samples=60)
             st.cache_resource.clear()
-            st.sidebar.success("Model pipeline retrained and saved successfully!")
+            st.sidebar.success("Model pipeline retrained successfully.")
 
-    # 2-Column Responsive Layout
-    col_input, col_report = st.columns([5, 6], gap="large")
+    # Page Header: serif title + single subtitle line
+    page_header()
 
-    # Column 1: Artwork Ingestion & Metadata Controls
-    with col_input:
-        st.subheader("1. Artwork Ingestion & Metadata Controls")
+    # Two columns (wide layout, 1:1)
+    col_details, col_appraisal = st.columns([1, 1], gap="large")
+
+    # Column 1: Artwork details
+    with col_details:
+        st.subheader("Artwork details")
 
         uploaded_file = st.file_uploader(
-            "Upload Artwork Image (PNG, JPG, JPEG)",
+            "Upload artwork image",
             type=["png", "jpg", "jpeg"],
             help="High-resolution image of the painting or artwork.",
         )
@@ -423,29 +432,29 @@ def main() -> None:
                 pil_image = Image.open(uploaded_file).convert("RGB")
                 st.image(
                     pil_image,
-                    caption=f"Uploaded Artwork Preview ({pil_image.width} × {pil_image.height} px)",
+                    caption=f"{pil_image.width} × {pil_image.height} px",
                     use_container_width=True,
                 )
             except Exception as e:
                 st.error(f"Error decoding image: {e}")
                 pil_image = None
         else:
-            st.info("ℹ️ No image uploaded. System will use canonical zero-vector visual fallback.")
+            st.caption("No image added. The estimate will use catalogue details only.")
 
-        # Artist selection & input
+        # Artist name
         preset_artist = selected_preset["artist"] if selected_preset else "Claude Monet"
         artist_idx = COMMON_ARTISTS.index(preset_artist) if preset_artist in COMMON_ARTISTS else (len(COMMON_ARTISTS) - 1)
-        artist_select = st.selectbox("Artist Name", options=COMMON_ARTISTS, index=artist_idx)
+        artist_select = st.selectbox("Artist name", options=COMMON_ARTISTS, index=artist_idx)
 
         if artist_select == "Custom / Other...":
-            artist = st.text_input("Enter Custom Artist Name", value="Contemporary Artist", placeholder="e.g. Gerhard Richter")
+            artist = st.text_input("Custom artist name", value="Contemporary Artist", placeholder="e.g. Gerhard Richter")
         else:
             artist = artist_select
 
-        # Creation Year Slider (min 1800, max 2026, default 1920)
+        # Creation year
         default_year = int(selected_preset["year"]) if selected_preset else 1920
         year = st.slider(
-            "Creation Year",
+            "Creation year",
             min_value=1800,
             max_value=2026,
             value=default_year,
@@ -453,12 +462,12 @@ def main() -> None:
             help="Year the artwork was created.",
         )
 
-        # Medium selector
+        # Medium
         preset_medium = selected_preset["medium"] if selected_preset else "Oil on Canvas"
         medium_idx = STANDARD_MEDIA.index(preset_medium) if preset_medium in STANDARD_MEDIA else 0
-        medium = st.selectbox("Artwork Medium", options=STANDARD_MEDIA, index=medium_idx)
+        medium = st.selectbox("Medium", options=STANDARD_MEDIA, index=medium_idx)
 
-        # Canvas Physical Dimensions
+        # Dimensions: Height & Width
         col_h, col_w = st.columns(2)
         with col_h:
             default_h = float(selected_preset["height"]) if selected_preset else 40.0
@@ -479,27 +488,28 @@ def main() -> None:
                 step=0.5,
             )
 
-        # Appraisal Confidence Slider (50% - 99%)
-        confidence_pct = st.slider(
-            "Appraisal Confidence Level (%)",
-            min_value=50,
-            max_value=99,
-            value=80,
-            step=1,
-            help="Statistical confidence interval for valuation bounds.",
-        )
+        # Advanced expander: statistical confidence slider
+        with st.expander("Advanced"):
+            confidence_pct = st.slider(
+                "Confidence level (%)",
+                min_value=50,
+                max_value=99,
+                value=80,
+                step=1,
+                help="Statistical confidence interval for valuation bounds.",
+            )
 
-        # Trigger Button
-        appraise_clicked = st.button("🎨 Appraise Artwork", type="primary", use_container_width=True)
+        # Primary action button (full width, active-voice, madder red accent)
+        appraise_clicked = st.button("Appraise artwork", type="primary", use_container_width=True)
 
-    # Column 2: Appraisal Valuation Report & Breakdown
-    with col_report:
-        st.subheader("2. Valuation Report & Aesthetic Breakdown")
+    # Column 2: Appraisal
+    with col_appraisal:
+        st.subheader("Appraisal")
 
         should_appraise = appraise_clicked or (selected_preset is not None)
 
         if should_appraise:
-            with st.spinner("Extracting multimodal features and computing auction valuation..."):
+            with st.spinner("Valuating artwork..."):
                 try:
                     result = appraise_artwork(
                         image_input=pil_image,
@@ -516,88 +526,20 @@ def main() -> None:
                     result = None
 
             if result is not None:
-                est_price = result["point_estimate"]
-                lower_bound = result["lower_bound"]
-                upper_bound = result["upper_bound"]
-                surface_area = result["surface_area"]
-                aspect_ratio = result["aspect_ratio"]
-                vis_norm = result["visual_embedding_norm"]
-                vis_sparsity = result["visual_sparsity"]
-                has_image = result["has_image"]
-                visual_mode = (
-                    "Active Multimodal (2048-D ResNet50 Penultimate Pool)"
-                    if has_image
-                    else "Zero-Vector Visual Fallback (Tabular-Only Valuation)"
+                estimate_card(
+                    result=result,
+                    confidence_pct=confidence_pct,
+                    artist=artist,
+                    year=year,
+                    medium=medium,
+                    height=height,
+                    width=width,
                 )
-
-                # Primary Valuation Metric Callout Card
-                st.markdown("### Estimated Fair Market Auction Valuation")
-                st.metric(
-                    label="Estimated Fair Market Value (USD)",
-                    value=result["formatted_point"],
-                    help="Estimated auction hammer price based on multimodal valuation model.",
-                )
-
-                # Confidence Interval Presentation (clamped lower bound >= 0)
-                st.info(
-                    f"**{confidence_pct}% Confidence Interval Range:** "
-                    f"**{result['formatted_lower']}** – **{result['formatted_upper']}**  \n"
-                    f"*(Lower bound strictly non-negative: $\\ge \\$0.00$)*"
-                )
-
-                # Physical Dimensions & Canvas Geometry
-                st.markdown("#### Physical Dimensions & Canvas Geometry")
-                col_m1, col_m2, col_m3, col_m4 = st.columns(4)
-                with col_m1:
-                    st.metric("Height", f"{height:,.1f}\"")
-                with col_m2:
-                    st.metric("Width", f"{width:,.1f}\"")
-                with col_m3:
-                    st.metric("Surface Area", f"{surface_area:,.1f} sq in")
-                with col_m4:
-                    st.metric("Aspect Ratio", f"{aspect_ratio:.2f}")
-
-                # Aesthetic & Visual Feature Representation Card
-                st.markdown("#### Visual Aesthetic & Feature Representation")
-                st.write(f"**Visual Modality Status:** {visual_mode}")
-                col_v1, col_v2, col_v3 = st.columns(3)
-                with col_v1:
-                    st.metric("Embedding Dimension", f"{len(result['visual_vector']):,}-D")
-                with col_v2:
-                    st.metric("Embedding L2-Norm", f"{vis_norm:.3f}")
-                with col_v3:
-                    st.metric("Feature Sparsity", f"{vis_sparsity:.1f}%")
-
-                # Contributing Attributes Summary Table
-                st.markdown("#### Artwork Attribute Summary")
-                contrib_data = {
-                    "Catalog Attribute": ["Artist", "Creation Era", "Medium", "Surface Area", "Aspect Ratio", "Visual Backbone"],
-                    "Specified Value": [
-                        artist,
-                        f"{year} (Age: {2026 - year} yrs)",
-                        medium,
-                        f"{surface_area:,.1f} in²",
-                        f"{aspect_ratio:.2f}",
-                        "ResNet50 Penultimate Pool",
-                    ],
-                }
-                st.dataframe(pd.DataFrame(contrib_data), hide_index=True, use_container_width=True)
-
-                # Model Diagnostics Expander
-                with st.expander("Valuation Model Diagnostics & Metadata"):
-                    st.write(f"**Underlying Model Architecture:** {type(model_obj.estimator_).__name__ if getattr(model_obj, 'estimator_', None) else 'LightGBM'}")
-                    st.write(f"**Total Multimodal Dimension:** {result['fused_features'].shape[1]} features ({result['tabular_features'].shape[1]} tabular + {result['visual_vector'].shape[0]} visual)")
-                    st.write(f"**Log Residual Standard Deviation ($\\sigma_\\epsilon$):** {model_obj.residual_std_:.4f}")
         else:
-            st.info("👈 Enter artwork specifications on the left and click **Appraise Artwork** to compute auction valuation.")
+            empty_state()
 
-        st.divider()
-        st.caption(
-            "⚖️ **Mandatory Appraisal Disclaimer:** Appraisal estimates and valuation ranges "
-            "are generated by multimodal machine learning models and are intended strictly for "
-            "informational and research purposes. Actual auction hammer realization prices depend on "
-            "provenance history, physical preservation condition, market liquidity, and qualified specialist examination."
-        )
+    # Small muted footnote disclaimer at the page bottom
+    disclaimer()
 
 
 if __name__ == "__main__":
