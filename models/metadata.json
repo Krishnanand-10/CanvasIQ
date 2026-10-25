@@ -1,0 +1,15 @@
+{
+  "model_type": "lightgbm",
+  "n_samples": 60,
+  "tabular_dim": 11,
+  "vision_dim": 2048,
+  "total_dim": 2059,
+  "residual_std": 1.143955111503601,
+  "metrics": {
+    "mse": 1.4041314125061035,
+    "rmse": 1.1849605109479824,
+    "mae": 0.9398979544639587,
+    "residual_std": 1.143955111503601
+  },
+  "status": "Bootstrapped Synthetic Benchmark Model"
+}

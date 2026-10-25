@@ -25,8 +25,8 @@
 
 ## 5. End-to-End Verification & Documentation
 
-- [ ] 5.1 Execute end-to-end benchmark dataset generation, model training, and automated test suite, verifying test pass status
-- [ ] 5.2 Document quickstart execution instructions in `README.md` and commit all working artifacts to Git repository
+- [x] 5.1 Execute end-to-end benchmark dataset generation, model training, and automated test suite, verifying test pass status
+- [x] 5.2 Document quickstart execution instructions in `README.md` and commit all working artifacts to Git repository
 
 ## Workflow follow-up
 
