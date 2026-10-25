@@ -20,8 +20,8 @@
 
 ## 4. Interactive Appraisal Interface
 
-- [ ] 4.1 Implement Streamlit web app in `app/app.py` with artwork image upload, metadata input controls (artist, creation year, medium, dimensions), and responsive appraisal layout
-- [ ] 4.2 Connect frontend form to the multimodal valuation inference engine, displaying estimated price, confidence interval, and visual breakdown, verifying interactive test flow
+- [x] 4.1 Implement Streamlit web app in `app/app.py` with artwork image upload, metadata input controls (artist, creation year, medium, dimensions), and responsive appraisal layout
+- [x] 4.2 Connect frontend form to the multimodal valuation inference engine, displaying estimated price, confidence interval, and visual breakdown, verifying interactive test flow
 
 ## 5. End-to-End Verification & Documentation
 
